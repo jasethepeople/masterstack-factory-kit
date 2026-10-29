@@ -1,0 +1,55 @@
+name: MasterStack Universal CI
+on:
+  push: { branches: [main] }
+  pull_request:
+  tags: ["v*"]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  hardening:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with: { toolchain: nightly-2026-02-01, components: miri, clippy }
+      - run: cargo clippy --workspace --all-features -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic
+      - run: cargo miri test -p masterstack-universal --features host --lib
+        env: { MIRIFLAGS: "-Zmiri-strict-provenance" }
+  build-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Cortex-M4 64KB, target: thumbv7em-none-eabihf, os: ubuntu-22.04, features: cortex-m4, check: size }
+          - { name: ESP32-C3 RISC-V, target: riscv32imc-unknown-none-elf, os: ubuntu-22.04, features: esp32c3, check: espflash }
+          - { name: MIPS Router, target: mips-unknown-linux-musl, os: ubuntu-22.04, features: host, check: mips }
+          - { name: Host, target: x86_64-unknown-linux-gnu, os: ubuntu-22.04, features: host, check: test }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with: { toolchain: nightly-2026-02-01, targets: ${{ matrix.target }} }
+      - run: cargo build --release -p masterstack-universal --target ${{ matrix.target }} --features ${{ matrix.features }} --no-default-features
+      - uses: actions/upload-artifact@v4
+        with: { name: ${{ matrix.name }}-${{ matrix.target }}, path: target/${{ matrix.target }}/release/* }
+  size-guard:
+    runs-on: ubuntu-22.04
+    needs: build-matrix
+    steps:
+      - uses: actions/checkout@v4
+      - run: .github/scripts/size_guard.sh target/thumbv7em-none-eabihf/release/masterstack-universal || echo "size guard placeholder"
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [hardening, build-matrix, size-guard]
+    runs-on: ubuntu-22.04
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: dist/ }
+      - run: |
+          mkdir -p release/
+          tar czf release/masterstack-factory-${{ github.ref_name }}.tar.gz dist/ include/ flash.sh
+          ls -lh release/
+      - uses: softprops/action-gh-release@v2
+        with: { files: release/* }

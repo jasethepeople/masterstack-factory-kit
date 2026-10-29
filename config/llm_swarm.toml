@@ -1,0 +1,20 @@
+[swarm]
+quorum = 2
+gas_limit = 5000
+[[agents]]
+id = 1
+backend = "ollama"
+model = "qwen2.5-coder:14b"
+url = "http://localhost:11434"
+role = "physics_optimizer"
+[[agents]]
+id = 2
+backend = "ollama"
+model = "deepseek-coder-v2:16b"
+url = "http://localhost:11434"
+role = "memory_safety_auditor"
+[[agents]]
+id = 3
+backend = "llama_cpp"
+path = "/opt/models/Meta-Llama-3.1-8B-Q8.gguf"
+role = "embedded_shrinker"

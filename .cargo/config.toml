@@ -1,0 +1,6 @@
+[build]
+target-dir = "target"
+[target.thumbv7em-none-eabihf]
+rustflags = ["-C", "link-arg=-Tmasterstack-universal/link.ld"]
+[target.riscv32imc-unknown-none-elf]
+rustflags = ["-C", "link-arg=-Tmasterstack-universal/link_esp32c3.ld"]

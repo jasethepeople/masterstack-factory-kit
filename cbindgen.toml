@@ -1,0 +1,4 @@
+language = "C"
+include_guard = "MASTER_STACK_H"
+autogen_warning = "/* Auto-generated */"
+sys_includes = ["stdint.h", "stdbool.h"]
